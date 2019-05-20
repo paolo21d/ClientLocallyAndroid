@@ -2,6 +2,7 @@ package pckLocally.clientlocallyandroid;
 
 import android.net.wifi.WifiManager;
 import android.text.format.Formatter;
+import android.util.Log;
 
 import com.google.gson.Gson;
 
@@ -14,16 +15,12 @@ import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.List;
 
-import static android.content.Context.WIFI_SERVICE;
-import static android.support.v4.content.ContextCompat.getSystemService;
-
-public class Communication {
+public class Communication extends Thread {
     private final int communicationPort = 10000;
     private final int communicationPortTCP = 10001;
     //musi byc na odwrot receivePort i sendPort niz w aplikacji servera
@@ -32,8 +29,8 @@ public class Communication {
     SendThread sendThread;
     ReceiveThread receiveThread;
     PlayerStatus status;
-    //Controller controller;
     boolean keepConnect = true;
+    Gson json = new Gson();
 
     byte[] sendData = new byte[1024];
     byte[] receiveData = new byte[1024];
@@ -42,27 +39,35 @@ public class Communication {
     InetAddress IPAddress;
     DatagramPacket receivePacket;
     DatagramPacket sendPacket;
-    ////
-    /*Socket clientSocket;
-    PrintWriter out;
-    BufferedReader in;*/
 
-    //TODO przekazac jakos activity aby moc odswiezac widok
-    public Communication(/*Controller c*/) {
-        //controller = c;
-        //inFromUser = new BufferedReader(new InputStreamReader(System.in));
+    MainActivity mainActivity;
+
+
+    //TODO jakos przekazac activity aby zrobic refresh
+    public Communication(MainActivity ma) {
+        mainActivity = ma;
         sendThread = new SendThread();
         receiveThread = new ReceiveThread();
         try {
             udpSocket = new DatagramSocket();
-//            String broadcast = getBroadcast();
-            String broadcast = "192.168.0.172";
-            IPAddress = InetAddress.getByName(broadcast);
+            String ipaddr = "192.168.0.172";
+//            String ipaddr = getBroadcast();
+            IPAddress = InetAddress.getByName(ipaddr);
         } catch (SocketException e) {
             e.printStackTrace();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
+    }
+
+    public void run() {
+        try {
+            initConnection();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        TCPConnection();
+
     }
 
     public boolean initConnection() throws IOException {
@@ -83,45 +88,15 @@ public class Communication {
         return true;
     }
 
-    public void TCPConnection() throws InterruptedException {
+    public void TCPConnection() {
         ///TCP
         sendThread.start();
         receiveThread.start();
     }
 
-    private String getIP(){
-        boolean useIPv4 = true;
-        try {
-            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface intf : interfaces) {
-                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress()) {
-                        String sAddr = addr.getHostAddress();
-                        //boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
-                        boolean isIPv4 = sAddr.indexOf(':')<0;
-
-                        if (useIPv4) {
-                            if (isIPv4)
-                                return sAddr;
-                        } else {
-                            if (!isIPv4) {
-                                int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
-                                return delim<0 ? sAddr.toUpperCase() : sAddr.substring(0, delim).toUpperCase();
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) { } // for now eat exceptions
-        return "";
-    }
     private String getBroadcast() throws UnknownHostException, SocketException {
-        //InetAddress IP = InetAddress.getLocalHost(); //TODO generuje blad
-        //String ip = new String(IP.getHostAddress());
-        //WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
-        //String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
-        String ip = getIP();
+        InetAddress IP = InetAddress.getLocalHost();
+        String ip = new String(IP.getHostAddress());
         String[] parts = ip.split("\\.", 0);
         short[] broadcast = new short[4];
         for (int i = 0; i < 4; i++) {
@@ -156,28 +131,36 @@ public class Communication {
     }
 
     //////////////////////////////
-    public void comPlayPause(){
-        sendThread.message = "Command:PLAYPAUSE";
+    public void comPlayPause() throws Exception {
+        Message message = new Message(MessageType.PLAYPAUSE);
+        sendThread.message = json.toJson(message);
     }
 
     public void comNext() {
-        sendThread.message = "Command:NEXT";
+        Message message = new Message(MessageType.NEXT);
+        sendThread.message = json.toJson(message);
     }
 
     public void comPrev() {
-        sendThread.message = "Command:PREV";
+        Message message = new Message(MessageType.PREV);
+        sendThread.message = json.toJson(message);
     }
 
     public void comReplay() {
-        sendThread.message = "Command:REPLAY";
+        Message message = new Message(MessageType.REPLAY);
+        sendThread.message = json.toJson(message);
     }
 
     public void comLoop() {
-        sendThread.message = "Command:LOOP";
+        Message message = new Message(MessageType.LOOP);
+        sendThread.message = json.toJson(message);
     }
 
+    public enum MessageType {
+        PLAYPAUSE, NEXT, PREV, REPLAY, LOOP, STATUS
+    }
 
-    class SendThread extends Thread {
+    class SendThread extends Thread { //TODO mozna przerobi zeby po wyslaniu sie usypial a jak sie chce wyslac to budzic do signalem
         public String message = "";
         //boolean keepConnect = true;
         private Socket clientSocket;
@@ -210,7 +193,7 @@ public class Communication {
 
     class ReceiveThread extends Thread {
         //boolean keepConnect = true;
-        String message;
+        String msg;
         private Socket clientSocket;
         private BufferedReader in;
 
@@ -224,19 +207,19 @@ public class Communication {
             }
 
             while (keepConnect) {
-                message = receive();
-                if (message == null) {
+                msg = receive();
+                if (msg == null) {
                     keepConnect = false;
                     break;
                 }
                 Gson json = new Gson();
-                status = json.fromJson(message, PlayerStatus.class);
-                if (status != null){
-                    //controller.refreshInfo(status);
-                    //TODO napisac odswiezanie widoku po odebraniu danych
+                //status = json.fromJson(message, PlayerStatus.class);
+                Message message = json.fromJson(msg, Message.class);
+                if (message != null && message.messageType == MessageType.STATUS) {
+                    //controller.refreshInfo(message.statusMessage);
+                    mainActivity.refreshInfo(message.statusMessage);
+                    //System.out.println(message.statusMessage.title);
                 }
-
-                //System.out.println(status.path);
             }
         }
 
@@ -251,6 +234,21 @@ public class Communication {
                 e.printStackTrace();
             }
             return msg;
+        }
+    }
+
+    public class Message {
+        MessageType messageType;
+        String message;
+        PlayerStatus statusMessage;
+
+        public Message(MessageType type, PlayerStatus st) {
+            messageType = type;
+            statusMessage = st;
+        }
+
+        public Message(MessageType type) {
+            messageType = type;
         }
     }
 }
