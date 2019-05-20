@@ -1,5 +1,6 @@
 package pckLocally.clientlocallyandroid;
 
+import android.net.DhcpInfo;
 import android.net.wifi.WifiManager;
 import android.text.format.Formatter;
 import android.util.Log;
@@ -14,11 +15,15 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Enumeration;
+
+import static android.content.Context.WIFI_SERVICE;
 
 public class Communication extends Thread {
     private final int communicationPort = 10000;
@@ -43,24 +48,48 @@ public class Communication extends Thread {
     MainActivity mainActivity;
 
 
-    //TODO jakos przekazac activity aby zrobic refresh
     public Communication(MainActivity ma) {
         mainActivity = ma;
         sendThread = new SendThread();
         receiveThread = new ReceiveThread();
         try {
             udpSocket = new DatagramSocket();
-            String ipaddr = "192.168.0.172";
-//            String ipaddr = getBroadcast();
-            IPAddress = InetAddress.getByName(ipaddr);
+//            String ipaddr = "192.168.0.172";
+//            IPAddress = InetAddress.getByName(ipaddr);
+            IPAddress = getBroadcastAddress();
         } catch (SocketException e) {
-            e.printStackTrace();
-        } catch (UnknownHostException e) {
             e.printStackTrace();
         }
     }
 
+    private InetAddress getBroadcastAddress() {
+        InetAddress broadcastAddress = null;
+        try {
+            Enumeration<NetworkInterface> networkInterface = NetworkInterface
+                    .getNetworkInterfaces();
+
+            while (broadcastAddress == null && networkInterface.hasMoreElements()) {
+                NetworkInterface singleInterface = networkInterface.nextElement();
+                String interfaceName = singleInterface.getName();
+                if (interfaceName.contains("wlan0") || interfaceName.contains("eth0")) {
+                    for (InterfaceAddress infaceAddress : singleInterface.getInterfaceAddresses()) {
+                        broadcastAddress = infaceAddress.getBroadcast();
+                        if (broadcastAddress != null) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+
+        return broadcastAddress;
+    }
+
     public void run() {
+        //System.out.print(getBroadcastAddress().toString());
         try {
             initConnection();
         } catch (IOException e) {
@@ -94,42 +123,6 @@ public class Communication extends Thread {
         receiveThread.start();
     }
 
-    private String getBroadcast() throws UnknownHostException, SocketException {
-        InetAddress IP = InetAddress.getLocalHost();
-        String ip = new String(IP.getHostAddress());
-        String[] parts = ip.split("\\.", 0);
-        short[] broadcast = new short[4];
-        for (int i = 0; i < 4; i++) {
-            broadcast[i] = Short.valueOf(parts[i]);
-        }
-
-        InetAddress localHost = Inet4Address.getLocalHost();
-        NetworkInterface networkInterface = NetworkInterface.getByInetAddress(localHost);
-        short mask = networkInterface.getInterfaceAddresses().get(0).getNetworkPrefixLength();
-
-        int binmask = 0x00000000;
-        for (int i = 0; i < mask; i++) {
-            binmask |= 1;
-            binmask <<= 1;
-        }
-        binmask >>= 1;
-
-        binmask <<= (32 - mask);
-        //System.out.println("MASK:"+Integer.toBinaryString(binmask));
-
-        int ad = 0;
-        ad = ad | (broadcast[0] << 24) | (broadcast[1] << 16) | (broadcast[2] << 8) | (broadcast[3]);
-        //System.out.println("IP:  "+Integer.toBinaryString(ad));
-
-        int br = (ad & binmask) | (~binmask);
-        //System.out.println("Brod:"+Integer.toBinaryString(br));
-        int[] bradd = {(br & 0xff000000) >>> 24, (br & 0x00ff0000) >>> 16, (br & 0x0000ff00) >>> 8, br & 0x000000ff};
-        //String braddress = (br&0xff000000) + "." + br&0x00ff0000 + "." + br&0x0000ff00 + "." + br&0x000000ff;
-        String braddress = bradd[0] + "." + bradd[1] + "." + bradd[2] + "." + bradd[3];
-        //System.out.println(braddress);
-        return braddress;
-    }
-
     //////////////////////////////
     public void comPlayPause() throws Exception {
         Message message = new Message(MessageType.PLAYPAUSE);
@@ -155,15 +148,18 @@ public class Communication extends Thread {
         Message message = new Message(MessageType.LOOP);
         sendThread.message = json.toJson(message);
     }
-    public void comVolMute(){
+
+    public void comVolMute() {
         Message message = new Message(MessageType.VOLMUTE);
         sendThread.message = json.toJson(message);
     }
-    public void comVolDown(){
+
+    public void comVolDown() {
         Message message = new Message(MessageType.VOLDOWN);
         sendThread.message = json.toJson(message);
     }
-    public void comVolUp(){
+
+    public void comVolUp() {
         Message message = new Message(MessageType.VOLUP);
         sendThread.message = json.toJson(message);
     }
