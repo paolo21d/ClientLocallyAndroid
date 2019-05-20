@@ -81,19 +81,17 @@ public class MainActivity extends AppCompatActivity {
         }*/
 
         infoLabel.setText(status.title);
-        vol
+        volumeLabel.setText(Double.toString(status.volumeValue*100)+"%");
     }
 
     public void volumeMuteClicked(View view){
-
+        communication.comVolMute();
     }
     public void volumeDownClicked(View view){
-
+        communication.comVolDown();
     }
     public void volumeUpClicked(View view){
-
+        communication.comVolUp();
     }
-
-
 
 }

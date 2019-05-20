@@ -155,9 +155,21 @@ public class Communication extends Thread {
         Message message = new Message(MessageType.LOOP);
         sendThread.message = json.toJson(message);
     }
+    public void comVolMute(){
+        Message message = new Message(MessageType.VOLMUTE);
+        sendThread.message = json.toJson(message);
+    }
+    public void comVolDown(){
+        Message message = new Message(MessageType.VOLDOWN);
+        sendThread.message = json.toJson(message);
+    }
+    public void comVolUp(){
+        Message message = new Message(MessageType.VOLUP);
+        sendThread.message = json.toJson(message);
+    }
 
     public enum MessageType {
-        PLAYPAUSE, NEXT, PREV, REPLAY, LOOP, STATUS
+        PLAYPAUSE, NEXT, PREV, REPLAY, LOOP, STATUS, VOLMUTE, VOLDOWN, VOLUP, SETSONG, SETVOLUME
     }
 
     class SendThread extends Thread { //TODO mozna przerobi zeby po wyslaniu sie usypial a jak sie chce wyslac to budzic do signalem
@@ -240,6 +252,8 @@ public class Communication extends Thread {
     public class Message {
         MessageType messageType;
         String message;
+        Song song;
+        Double volValue;
         PlayerStatus statusMessage;
 
         public Message(MessageType type, PlayerStatus st) {
