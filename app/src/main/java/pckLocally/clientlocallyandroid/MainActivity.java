@@ -81,7 +81,8 @@ public class MainActivity extends AppCompatActivity {
         }*/
 
         infoLabel.setText(status.title);
-        volumeLabel.setText(Double.toString(status.volumeValue*100)+"%");
+        int volume = (int) (status.volumeValue*100);
+        volumeLabel.setText(Integer.toString(volume)+"%");
     }
 
     public void volumeMuteClicked(View view){
