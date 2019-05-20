@@ -55,7 +55,8 @@ public class Communication {
         receiveThread = new ReceiveThread();
         try {
             udpSocket = new DatagramSocket();
-            String broadcast = getBroadcast();
+//            String broadcast = getBroadcast();
+            String broadcast = "192.168.0.172";
             IPAddress = InetAddress.getByName(broadcast);
         } catch (SocketException e) {
             e.printStackTrace();
