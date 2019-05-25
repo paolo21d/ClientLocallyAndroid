@@ -20,6 +20,7 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
 
@@ -39,6 +40,7 @@ public class Communication extends Thread {
 
     byte[] sendData = new byte[1024];
     byte[] receiveData = new byte[1024];
+    String pin;
     //BufferedReader inFromUser;
     DatagramSocket udpSocket;
     InetAddress IPAddress;
@@ -47,6 +49,13 @@ public class Communication extends Thread {
 
     MainActivity mainActivity;
 
+    public String getPin() {
+        return pin;
+    }
+
+    public void setPin(String pin) {
+        this.pin = pin;
+    }
 
     public Communication(MainActivity ma) {
         mainActivity = ma;
@@ -90,31 +99,53 @@ public class Communication extends Thread {
 
     public void run() {
         //System.out.print(getBroadcastAddress().toString());
-        try {
-            initConnection();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (!initConnection()){
+            MainActivity.connected = false;
+            return;
         }
+        MainActivity.connected = true;
         TCPConnection();
 
     }
 
-    public boolean initConnection() throws IOException {
+    public boolean initConnection() {
         System.out.println("Communication thread start");
 
-        String sentence = new String("INIT_CONNECTION");
+        String sentence = pin;
         sendData = sentence.getBytes();
         sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, communicationPort);
-        udpSocket.send(sendPacket);
+        try {
+            udpSocket.send(sendPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
         receivePacket = new DatagramPacket(receiveData, receiveData.length);
-        udpSocket.receive(receivePacket);
+        try {
+            udpSocket.setSoTimeout(1500);
+        } catch (SocketException e) {
+            e.printStackTrace();
+            return false;
+        }
+        try {
+            udpSocket.receive(receivePacket);
+        } catch (SocketTimeoutException e) {
+            return false;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
         IPAddress = receivePacket.getAddress();
 
         String modifiedSentence = new String(receivePacket.getData());
+        modifiedSentence = modifiedSentence.substring(0, 7);
         System.out.println("FROM SERVER: " + modifiedSentence);
         System.out.println(IPAddress);
         udpSocket.close();
-        return true;
+        if (modifiedSentence.equals("ERRORCN"))
+            return false;
+        else
+            return true;
     }
 
     public void TCPConnection() {

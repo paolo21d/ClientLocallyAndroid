@@ -3,8 +3,10 @@ package pckLocally.clientlocallyandroid;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.IOException;
 
@@ -13,9 +15,10 @@ public class MainActivity extends AppCompatActivity {
     TextView volumeLabel;
     ImageButton playPauseButton;
     ImageButton loopButton;
-    boolean connected = false;
+    EditText pinField;
+    static boolean connected = false;
     Communication communication;
-    double volume =1;
+    double volume = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
         volumeLabel = findViewById(R.id.volumeLabel);
         playPauseButton = findViewById(R.id.playPauseButton);
         loopButton = findViewById(R.id.loopButton);
+        pinField = findViewById(R.id.pinText);
 
         communication = new Communication(this);
     }
@@ -53,8 +57,23 @@ public class MainActivity extends AppCompatActivity {
 
     public void connectClicked(View view) {
         if (!connected) {
+            String pin = pinField.getText().toString();
+            if (pin.equals("")) {
+                Toast.makeText(getApplicationContext(), "Input PIN to connect!", Toast.LENGTH_LONG).show();
+                return;
+            }else if(pin.length()!=4){
+                Toast.makeText(getApplicationContext(), "PIN is 4 digits!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            communication.setPin(pin);
             communication.start();
-            connected = true;
+            //communication.initConnection();
+            if(connected){
+                infoLabel.setText("Connectd");
+                //communication.TCPConnection();
+            }else{
+                infoLabel.setText("NOT Connected");
+            }
         }
     }
 
@@ -81,17 +100,19 @@ public class MainActivity extends AppCompatActivity {
         }*/
 
         infoLabel.setText(status.title);
-        int volume = (int) (status.volumeValue*100);
-        volumeLabel.setText(Integer.toString(volume)+"%");
+        int volume = (int) (status.volumeValue * 100);
+        volumeLabel.setText(Integer.toString(volume) + "%");
     }
 
-    public void volumeMuteClicked(View view){
+    public void volumeMuteClicked(View view) {
         communication.comVolMute();
     }
-    public void volumeDownClicked(View view){
+
+    public void volumeDownClicked(View view) {
         communication.comVolDown();
     }
-    public void volumeUpClicked(View view){
+
+    public void volumeUpClicked(View view) {
         communication.comVolUp();
     }
 
