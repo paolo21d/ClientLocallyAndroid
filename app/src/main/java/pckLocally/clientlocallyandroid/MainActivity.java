@@ -116,4 +116,11 @@ public class MainActivity extends AppCompatActivity {
         communication.comVolUp();
     }
 
+    public void closeCommunication() {
+        connected = false;
+        infoLabel.setText("Disconnected");
+        communication.closeCommunication();
+        communication = null;
+        communication = new Communication(this);
+    }
 }

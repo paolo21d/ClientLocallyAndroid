@@ -99,7 +99,7 @@ public class Communication extends Thread {
 
     public void run() {
         //System.out.print(getBroadcastAddress().toString());
-        if (!initConnection()){
+        if (!initConnection()) {
             MainActivity.connected = false;
             return;
         }
@@ -195,6 +195,20 @@ public class Communication extends Thread {
         sendThread.message = json.toJson(message);
     }
 
+    public void closeCommunication() {
+        if (sendThread != null)
+            sendThread.close();
+        if (receiveThread != null)
+            sendThread.close();
+    }
+
+    public void resetCommunication() {
+        sendThread.close();
+        receiveThread.close();
+        sendThread = null;
+        receiveThread = null;
+    }
+
     public enum MessageType {
         PLAYPAUSE, NEXT, PREV, REPLAY, LOOP, STATUS, VOLMUTE, VOLDOWN, VOLUP, SETSONG, SETVOLUME
     }
@@ -228,6 +242,14 @@ public class Communication extends Thread {
             out.println(msg);
             System.out.println("Wyslano - DONE");
         }
+
+        public void close() {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     class ReceiveThread extends Thread {
@@ -249,6 +271,7 @@ public class Communication extends Thread {
                 msg = receive();
                 if (msg == null) {
                     keepConnect = false;
+                    //closeCommunication();
                     break;
                 }
                 Gson json = new Gson();
@@ -260,6 +283,7 @@ public class Communication extends Thread {
                     //System.out.println(message.statusMessage.title);
                 }
             }
+            mainActivity.closeCommunication();
         }
 
         public String receive() {
@@ -273,6 +297,14 @@ public class Communication extends Thread {
                 e.printStackTrace();
             }
             return msg;
+        }
+
+        public void close() {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
